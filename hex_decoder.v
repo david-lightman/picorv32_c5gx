@@ -1,8 +1,4 @@
-/*
- hex_decoder.v
-  standard 7-Segment decoder driver (active-low for terasic boards)
- Author: David-Lightman
- */
+// standard 7-Segment decoder driver (active-low for terasic boards)
 module hex_decoder (
     input  wire [3:0] in,
     output reg  [6:0] out

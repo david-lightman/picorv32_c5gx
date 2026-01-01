@@ -2,6 +2,9 @@
 # FPGA Project Makefile for Altera Cyclone V GX Starter Kit
 # ==============================================================================
 
+# ------------------------------------------------------------------------------
+# 1. Project Configuration
+# ------------------------------------------------------------------------------
 PROJECT   := riscv_core_c5gx
 TOP_LEVEL := baseline_c5gx
 PART      := 5CGXFC5C6F27C7
@@ -15,7 +18,7 @@ VLOG        ?= vlog
 VSIM        ?= vsim
 
 # ------------------------------------------------------------------------------
-# Firmware Configuration
+# 2. Firmware Configuration
 # ------------------------------------------------------------------------------
 FW_DIR      := firmware
 RISCV_PREFIX ?= riscv64-unknown-elf-
@@ -29,8 +32,8 @@ BIN_FILE    := $(FW_DIR)/firmware.bin
 LIST_FILE   := firmware.list
 
 # Firmware Sources (Using verify.S for now)
-FW_SRCS     := $(FW_DIR)/verify.S
-# FW_SRCS   := $(FW_DIR)/start.S $(FW_DIR)/main.c  <-- Switch back to this later
+FW_SRCS   := $(FW_DIR)/start.S $(FW_DIR)/main.c  
+#FW_SRCS     := $(FW_DIR)/verify.S
 LDSCRIPT    := $(FW_DIR)/sections.lds
 MAKEHEX     := $(FW_DIR)/makehex.py
 
@@ -43,9 +46,9 @@ MAKEHEX     := $(FW_DIR)/makehex.py
 # Default: Build Firmware -> Then Hardware
 all: $(LIST_FILE) compile
 
-# ---------
-# Firmware build
-# ---------
+# ------------------------------------------------------------------------------
+# 3. Firmware Build Rules (Must run FIRST)
+# ------------------------------------------------------------------------------
 $(LIST_FILE): $(FW_SRCS) $(LDSCRIPT) $(MAKEHEX)
 	@echo "--- Compiling Firmware (Binary List) ---"
 	$(GCC) $(CFLAGS) -Wl,-Bstatic,-T,$(LDSCRIPT) -o $(ELF_FILE) $(FW_SRCS)
@@ -54,7 +57,7 @@ $(LIST_FILE): $(FW_SRCS) $(LDSCRIPT) $(MAKEHEX)
 	@echo "Success! $(LIST_FILE) generated."
 
 # ------------------------------------------------------------------------------
-# Hardware Compilation 
+# 4. Hardware Compilation (Depends on Firmware)
 # ------------------------------------------------------------------------------
 compile: $(LIST_FILE)
 	@echo "--- Configuring Output Directory ---"
@@ -63,7 +66,7 @@ compile: $(LIST_FILE)
 	$(QUARTUS_SH) --flow compile $(PROJECT)
 
 # ------------------------------------------------------------------------------
-# Programming
+# 5. Programming
 # ------------------------------------------------------------------------------
 program:
 	@echo "--- Programming FPGA ---"
@@ -72,9 +75,9 @@ program:
 upload: program
 
 # ------------------------------------------------------------------------------
-# Simulation
+# 6. Simulation
 # ------------------------------------------------------------------------------
-SRCS   := picorv32.v riscv_core_c5gx.v hex_decoder.v
+SRCS   := picorv32.v riscv_core_c5gx.v hex_decoder.v simpleuart.v 
 TB_SRC := tb.v
 
 work:
@@ -93,10 +96,10 @@ sim-gui: libs
 	$(VSIM) -gui -do "add wave -position insertpoint sim:/tb/dut/*; run 10 us" tb
 
 # ------------------------------------------------------------------------------
-#  Utilities
+# 7. Utilities
 # ------------------------------------------------------------------------------
 clean:
-	@echo "--- make clean running ---"
+	@echo "--- Cleaning Project ---"
 	rm -rf db incremental_db $(OUT_DIR) simulation work transcript *.wlf
 	rm -f $(ELF_FILE) $(BIN_FILE) $(LIST_FILE) firmware.hex
 	mkdir -p $(OUT_DIR)

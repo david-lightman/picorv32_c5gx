@@ -200,8 +200,8 @@ module baseline_c5gx(
         .o_trap          (LEDR),         // LEDR Display (Pins R0 to R9)
 
         // THOU-ART
-        .tx              (UART_TX),      // UART Transmit
-        .rx              (UART_RX)       // UART Receive
+        .o_tx              (UART_TX),      // UART Transmit
+        .i_rx              (UART_RX)       // UART Receive
     );
 
 endmodule
