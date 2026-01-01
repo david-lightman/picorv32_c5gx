@@ -32,3 +32,8 @@ make
 # 3. Program the FPGA
 make program
 
+## Credits
+
+- PicoRV32 Core: Clifford Wolf / YosysHQ
+
+- Board: Terasic Cyclone V GX Starter Kit
