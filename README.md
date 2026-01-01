@@ -31,6 +31,7 @@ make
 
 # 3. Program the FPGA
 make program
+```
 
 ## Credits
 
