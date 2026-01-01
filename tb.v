@@ -20,8 +20,8 @@ module tb;
         .o_hex1      (hex1),
         .o_hex2      (hex2),
         .o_hex3      (hex3),
-        .tx          (tx),
-        .rx          (rx)
+        .o_tx          (tx),
+        .i_rx          (rx)
     );
 
     // 4. Clock Generation (50 MHz = 20ns period)
