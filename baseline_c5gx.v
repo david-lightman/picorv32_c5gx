@@ -186,22 +186,32 @@ module baseline_c5gx(
     assign LEDG = 8'h00; 
 
     // Instantiate the RISC-V Core
-    riscv_core_c5gx u0 (
-        .i_clk_50mhz     (CLOCK_50_B5B), // 50 MHz System Clock (Pin R20)
-        .i_reset_n       (CPU_RESET_n),  // Key0 (Active Low)
+    // Instantiate the RISC-V Core
+      riscv_core_c5gx u0 (
+      .i_clk_50mhz     (CLOCK_50_B5B), // 50 MHz System Clock
+      .i_reset_n       (CPU_RESET_n),  // Key0 (Active Low)
 
-        // connect 7-seg outputs
-        .o_hex0          (HEX0),         // HEX0 Display (Pins D2 to A2)
-        .o_hex1          (HEX1),         // HEX1 Display (Pins C4 to A4)  
-        .o_hex2          (HEX2),         // HEX2 Display (Pins D4 to A6)
-        .o_hex3          (HEX3),         // HEX3 Display (Pins C6 to A7)
+      // connect 7-seg outputs
+      .o_hex0          (HEX0),
+      .o_hex1          (HEX1),
+      .o_hex2          (HEX2),
+      .o_hex3          (HEX3),
 
-        // debug LED (trap, mem_valid)
-        .o_trap          (LEDR),         // LEDR Display (Pins R0 to R9)
+      // debug LED
+      .o_trap          (LEDR),
 
-        // THOU-ART
-        .o_tx              (UART_TX),      // UART Transmit
-        .i_rx              (UART_RX)       // UART Receive
-    );
+      // UART
+      .o_tx            (UART_TX),
+      .i_rx            (UART_RX),
+
+      // SRAM Connection
+      .SRAM_A          (SRAM_A),
+      .SRAM_D          (SRAM_D),
+      .SRAM_CE_n       (SRAM_CE_n),
+      .SRAM_OE_n       (SRAM_OE_n),
+      .SRAM_WE_n       (SRAM_WE_n),
+      .SRAM_LB_n       (SRAM_LB_n),
+      .SRAM_UB_n       (SRAM_UB_n)
+      );
 
 endmodule
