@@ -185,9 +185,28 @@ module baseline_c5gx(
     // Turn off unused Green LEDs
     assign LEDG = 8'h00; 
 
+    // Instantiate SD SPI Controller
+    wire spi_clk_out;
+    wire spi_mosi_out;
+    wire spi_cs_n_out;
+
+    // SD Card Pin Mapping for SPI Mode
+    // SD_CLK    -> SCK
+    // SD_CMD    -> MOSI
+    // SD_DAT[0] -> MISO
+    // SD_DAT[3] -> CS
+    assign SD_CLK    = spi_clk_out;
+    assign SD_CMD    = spi_mosi_out; 
+    assign SD_DAT[3] = spi_cs_n_out;
+    
+    // Tie unused data lines High (Idle)
+    assign SD_DAT[1] = 1'b1;
+    assign SD_DAT[2] = 1'b1;
+    // SD_DAT[0] is input (MISO), set to Z for safety (though input doesn't drive)
+    assign SD_DAT[0] = 1'bz;
+
     // Instantiate the RISC-V Core
-    // Instantiate the RISC-V Core
-      riscv_core_c5gx u0 (
+    riscv_core_c5gx u0 (
       .i_clk_50mhz     (CLOCK_50_B5B), // 50 MHz System Clock
       .i_reset_n       (CPU_RESET_n),  // Key0 (Active Low)
 
@@ -211,7 +230,13 @@ module baseline_c5gx(
       .SRAM_OE_n       (SRAM_OE_n),
       .SRAM_WE_n       (SRAM_WE_n),
       .SRAM_LB_n       (SRAM_LB_n),
-      .SRAM_UB_n       (SRAM_UB_n)
+      .SRAM_UB_n       (SRAM_UB_n),
+
+      // SD Card SPI Interface
+      .o_sd_clk        (spi_clk_out),
+      .o_sd_mosi       (spi_mosi_out),    
+      .i_sd_miso       (SD_DAT[0]),
+      .o_sd_cs_n       (spi_cs_n_out)
       );
 
 endmodule

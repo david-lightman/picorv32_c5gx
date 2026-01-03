@@ -1,16 +1,16 @@
-.section .text.start
+.section .text
 .global _start
 
 _start:
-    /* PicoRV32 includes built-in SP initialization if parameters are set, 
-       but we force it here to be safe. Top of RAM = 1024 (0x400) */
+    # 1. Initialize Stack Pointer
+    # Set SP to the top of Internal RAM (0x400 = 1KB)
+    # The stack grows DOWN from here.
     li sp, 0x400
-    
-    /* Jump to main C function */
+
+    # 2. Jump to C Code
     call main
 
-    /* Trap if main returns */
+    # 3. Trap Loop (If main returns)
     ebreak
 loop:
     j loop
-

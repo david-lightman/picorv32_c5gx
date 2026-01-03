@@ -1,3 +1,8 @@
+/*
+ * The SRAM controller module for interfacing PicoRV32 with an external SRAM chip.
+ * Supports 32-bit reads/writes by splitting them into two 16-bit operations.
+ * This slows down memory access but is necessary for 16-bit wide SRAM.
+ */
 module sram_controller (
     input  wire        clk,
     input  wire        resetn,

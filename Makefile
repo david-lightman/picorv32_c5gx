@@ -24,7 +24,7 @@ FW_DIR      := firmware
 RISCV_PREFIX ?= riscv64-unknown-elf-
 GCC         := $(RISCV_PREFIX)gcc
 OBJCOPY     := $(RISCV_PREFIX)objcopy
-CFLAGS      := -march=rv32i -mabi=ilp32 -O2 -ffreestanding -nostdlib -lgcc
+CFLAGS      := -march=rv32i -mabi=ilp32 -Os -ffreestanding -nostdlib -lgcc
 
 # Artifacts
 ELF_FILE    := $(FW_DIR)/firmware.elf
@@ -77,7 +77,7 @@ upload: program
 # ------------------------------------------------------------------------------
 # 6. Simulation
 # ------------------------------------------------------------------------------
-SRCS   := picorv32.v riscv_core_c5gx.v hex_decoder.v simpleuart.v 
+SRCS   := picorv32.v riscv_core_c5gx.v hex_decoder.v simpleuart.v sd_spi_bridge.v sram_controller.v 
 TB_SRC := tb.v
 
 work:

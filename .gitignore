@@ -1,0 +1,14 @@
+db/
+incremental_db/
+output_files/
+simulation/
+*.bin
+*.elf
+*.hex
+*.list
+*.sopcinfo
+*.sof
+*.pof
+*.jdi
+*.sld
+

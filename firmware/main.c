@@ -1,70 +1,111 @@
 #include <stdint.h>
 
-#define UART_ADDR 0x20000000
-#define SRAM_BASE 0x10000000
+// --- Hardware Map ---
+#define SD_PORT   (*(volatile int*)0x30000000)
+#define UART      (*(volatile int*)0x20000000)
+#define SRAM_BASE ((volatile uint8_t*)0x10000000)
 
+// --- Constants ---
+#define PIN_SCK  1
+#define PIN_MOSI 2
+#define PIN_CS   4
+
+// --- Helpers ---
 void putc(char c) {
-    *(volatile int*)UART_ADDR = c;
+    UART = c;
     for (volatile int i = 0; i < 2000; i++);
 }
 
-void print(const char *str) {
-    while (*str) putc(*str++);
+void print_hex(uint8_t v) {
+    static const char h[] = "0123456789ABCDEF";
+    putc(h[v >> 4]); putc(h[v & 0xF]);
 }
 
-char to_hex(int v) {
-    if (v < 10) return '0' + v;
-    return 'A' + (v - 10);
-}
-
-void print_hex(unsigned int val) {
+uint8_t spi_byte(uint8_t out) {
+    uint8_t in = 0;
     for (int i = 7; i >= 0; i--) {
-        putc(to_hex((val >> (i * 4)) & 0xF));
+        int bit = (out >> i) & 1;
+        int mosi_mask = bit ? PIN_MOSI : 0;
+        SD_PORT = mosi_mask;            
+        SD_PORT = mosi_mask | PIN_SCK;  
+        if (SD_PORT & 1) in |= (1 << i);
     }
+    SD_PORT = PIN_MOSI;
+    return in;
+}
+
+uint8_t sd_cmd(uint8_t cmd, uint32_t arg, uint8_t crc) {
+    SD_PORT = PIN_MOSI; 
+    spi_byte(cmd | 0x40);
+    spi_byte(arg >> 24); spi_byte(arg >> 16); spi_byte(arg >> 8); spi_byte(arg);
+    spi_byte(crc);
+    uint8_t r = 0xFF;
+    for (int i = 0; i < 16; i++) {
+        r = spi_byte(0xFF);
+        if ((r & 0x80) == 0) break;
+    }
+    return r;
 }
 
 int main() {
-    volatile uint8_t  *sram_b = (volatile uint8_t*)SRAM_BASE;
-    volatile uint16_t *sram_h = (volatile uint16_t*)SRAM_BASE;
-    volatile uint32_t *sram_w = (volatile uint32_t*)SRAM_BASE;
+    putc('>'); putc(' ');
 
-    print("\r\n=== SRAM Byte/Half-Word Test ===\r\n");
+    // 1. Wakeup
+    SD_PORT = PIN_CS | PIN_MOSI;
+    for (int i = 0; i < 10; i++) spi_byte(0xFF);
 
-    // Clear first word
-    sram_w[0] = 0x00000000;
+    // 2. Init Sequence (CMD0 -> CMD8 -> ACMD41)
+    if (sd_cmd(0, 0, 0x95) != 0x01) goto fail;
+    
+    sd_cmd(8, 0x1AA, 0x87); // Optional, ignore result
+    spi_byte(0xFF); spi_byte(0xFF); spi_byte(0xFF); spi_byte(0xFF); // Flush R7
 
-    // Test 1: Write Bytes [0xAA, 0xBB, 0xCC, 0xDD]
-    // Memory should look like 0xDDCCBBAA (Little Endian)
-    print("Writing Bytes...\r\n");
-    sram_b[0] = 0xAA;
-    sram_b[1] = 0xBB;
-    sram_b[2] = 0xCC;
-    sram_b[3] = 0xDD;
+    int retries = 20000;
+    while (retries--) {
+        sd_cmd(55, 0, 0xFF);
+        if (sd_cmd(41, 0x40000000, 0xFF) == 0x00) break;
+    }
+    if (retries <= 0) goto fail;
 
-    uint32_t val = sram_w[0];
-    if (val == 0xDDCCBBAA) {
-        print("PASS: Byte Write / Word Read\r\n");
-    } else {
-        print("FAIL: Expected 0xDDCCBBAA, got 0x");
-        print_hex(val);
-        print("\r\n");
+    // 3. Load Kernel
+    // We read 128 Sectors (128 * 512 bytes = 64KB)
+    // Starting at Sector 1 (Offset 512) to protect the Partition Table at Sector 0
+    putc('L'); putc('O'); putc('A'); putc('D'); putc('\r'); putc('\n');
+    
+    volatile uint8_t *ram = SRAM_BASE;
+    
+    for (int sec = 1; sec <= 128; sec++) {
+        // CMD17: Read Single Block
+        if (sd_cmd(17, sec, 0xFF) != 0x00) goto fail;
+        
+        // Wait for Data Token (0xFE)
+        while (spi_byte(0xFF) != 0xFE);
+        
+        // Copy 512 bytes to SRAM
+        for (int i = 0; i < 512; i++) {
+            *ram++ = spi_byte(0xFF);
+        }
+        
+        // Read CRC (Discard)
+        spi_byte(0xFF); spi_byte(0xFF);
+        
+        // Progress indicator every 16 sectors
+        if ((sec & 15) == 0) putc('.');
     }
 
-    // Test 2: Half-Word Overwrite
-    // Overwrite the upper half (0xDDCC) with 0x1234
-    // Result should be 0x1234BBAA
-    print("Writing Half-Word...\r\n");
-    sram_h[1] = 0x1234; 
+    // 4. Jump
+    putc('\r'); putc('\n');
+    putc('B'); putc('O'); putc('O'); putc('T'); putc('!'); putc('\r'); putc('\n');
+    
+    // Cast integer 0x10000000 to a function pointer and call it
+    void (*kernel)(void) = (void*)0x10000000;
+    kernel();
 
-    val = sram_w[0];
-    if (val == 0x1234BBAA) {
-        print("PASS: Half-Word Write\r\n");
-    } else {
-        print("FAIL: Expected 0x1234BBAA, got 0x");
-        print_hex(val);
-        print("\r\n");
-    }
+    // Dead loop if kernel returns
+    while(1);
 
+fail:
+    putc('E'); putc('R'); putc('R');
     while(1);
     return 0;
 }

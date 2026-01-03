@@ -15,6 +15,12 @@ module riscv_core_c5gx (
     output wire         o_tx,
     input  wire         i_rx,
 
+    // SD Card SPI Interface
+    output wire         o_sd_clk,
+    output wire         o_sd_mosi,
+    input  wire         i_sd_miso,
+    output wire         o_sd_cs_n,
+
     // SRAM Interface
     output wire [17:0]  SRAM_A,
     inout  wire [15:0]  SRAM_D,
@@ -51,6 +57,7 @@ module riscv_core_c5gx (
     wire is_ram  = (mem_addr[31:24] == 8'h00); // Internal BRAM (Boot)
     wire is_sram = (mem_addr[31:24] == 8'h10); // External SRAM (0x10000000)
     wire is_uart = (mem_addr[31:24] == 8'h20); // UART (0x20000000)
+    wire is_spi  = (mem_addr[31:24] == 8'h30); // SPI (0x30000000)
 
     // --- Internal RAM ---
     `ifdef ALTERA_RESERVED_QIS
@@ -103,6 +110,27 @@ module riscv_core_c5gx (
         .SRAM_UB_n  (SRAM_UB_n)
     );
 
+    // SD Card SPI Controller
+    wire        spi_ready;
+    wire [31:0] spi_rdata;
+
+    sd_spi_bridge u_spi (
+        .clk        (i_clk_50mhz),
+        .resetn     (~r_system_reset),
+        // Connect memory interface only when address matches 0x30...
+        .mem_valid  (mem_valid && is_spi),
+        .mem_addr   (mem_addr),
+        .mem_wdata  (mem_wdata),
+        .mem_wstrb  (mem_wstrb),
+        .mem_ready  (spi_ready),
+        .mem_rdata  (spi_rdata),
+        // Physical Pins
+        .sck        (o_sd_clk),
+        .mosi       (o_sd_mosi),
+        .miso       (i_sd_miso),
+        .cs_n       (o_sd_cs_n)
+    );
+
     // --- UART ---
     wire uart_busy;
     simpleuart u_uart (
@@ -119,12 +147,14 @@ module riscv_core_c5gx (
     // Combine Ready signals
     // Note: UART "ready" is assumed instant for write (fire-and-forget logic in original code)
     // but proper implementation should wait if busy. Keeping original behavior for UART.
-    assign mem_ready = (is_ram  ? ram_ready : 0) | 
+    assign mem_ready = (is_ram  ? ram_ready : 0)  | 
                        (is_sram ? sram_ready : 0) | 
+                       (is_spi  ? spi_ready : 0)  | 
                        (is_uart ? 1'b1 : 0);
 
     assign mem_rdata = is_ram  ? ram_rdata : 
                        is_sram ? sram_rdata : 
+                       is_spi  ? spi_rdata : 
                        32'h0000_0000;
 
     // --- CPU ---

@@ -764,6 +764,9 @@ set_global_assignment -name VERILOG_FILE hex_decoder.v
 set_global_assignment -name VERILOG_FILE picorv32.v
 set_global_assignment -name VERILOG_FILE riscv_core_c5gx.v
 set_global_assignment -name VERILOG_FILE simpleuart.v
+set_global_assignment -name VERILOG_FILE sd_spi_bridge.v
+set_global_assignment -name VERILOG_FILE sram_controller.v
+set_global_assignment -name SDC_FILE riscv_core_c5gx.SDC
 set_global_assignment -name MISC_FILE firmware.list
 set_global_assignment -name BOARD "Cyclone V GX Starter Kit"
 set_global_assignment -name EDA_SIMULATION_TOOL "Questa Altera FPGA (Verilog)"
