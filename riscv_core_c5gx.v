@@ -1,26 +1,21 @@
 module riscv_core_c5gx (
     input  wire         i_clk_50mhz,
     input  wire         i_reset_n,
-
     // 7-seg for memory address display
     output wire [6:0]   o_hex0,
     output wire [6:0]   o_hex1,
     output wire [6:0]   o_hex2,
     output wire [6:0]   o_hex3,
-
     // trap and LEDs
     output wire [9:0]   o_trap,
-
     // UART
     output wire         o_tx,
     input  wire         i_rx,
-
     // SD Card SPI Interface
     output wire         o_sd_clk,
     output wire         o_sd_mosi,
     input  wire         i_sd_miso,
     output wire         o_sd_cs_n,
-
     // SRAM Interface
     output wire [17:0]  SRAM_A,
     inout  wire [15:0]  SRAM_D,
@@ -70,7 +65,6 @@ module riscv_core_c5gx (
     
     reg [31:0] ram_rdata;
     reg        ram_ready;
-
     always @(posedge i_clk_50mhz) begin
         ram_ready <= 0;
         if (mem_valid && is_ram) begin
@@ -89,7 +83,6 @@ module riscv_core_c5gx (
     // --- SRAM Controller ---
     wire        sram_ready;
     wire [31:0] sram_rdata;
-
     sram_controller u_sram (
         .clk        (i_clk_50mhz),
         .resetn     (~r_system_reset),
@@ -113,7 +106,6 @@ module riscv_core_c5gx (
     // SD Card SPI Controller
     wire        spi_ready;
     wire [31:0] spi_rdata;
-
     sd_spi_bridge u_spi (
         .clk        (i_clk_50mhz),
         .resetn     (~r_system_reset),
@@ -132,29 +124,38 @@ module riscv_core_c5gx (
     );
 
     // --- UART ---
-    wire uart_busy;
-    simpleuart u_uart (
+    wire        uart_ready;
+    wire [31:0] uart_rdata;
+    uart_full #(
+        .SYS_CLK    (50_000_000),
+        .BAUDRATE   (115_200)
+    ) u_uart (
         .clk         (i_clk_50mhz),
         .resetn      (~r_system_reset),
-        .ser_tx      (mem_wdata[7:0]),
-        .ser_tx_we   (mem_valid && is_uart && |mem_wstrb),
-        .ser_tx_busy (uart_busy),
-        .ser_tx_done (/*not used*/),
-        .uart_tx     (o_tx)
+        // Connect memory interface
+        .mem_valid   (mem_valid && is_uart),
+        .mem_addr    (mem_addr),
+        .mem_wdata   (mem_wdata),
+        .mem_wstrb   (mem_wstrb),
+        .mem_ready   (uart_ready),
+        .mem_rdata   (uart_rdata),
+        // Physical Pins
+        .uart_tx     (o_tx),
+        .uart_rx     (i_rx)
     );
 
     // --- Memory Mux ---
     // Combine Ready signals
-    // Note: UART "ready" is assumed instant for write (fire-and-forget logic in original code)
-    // but proper implementation should wait if busy. Keeping original behavior for UART.
-    assign mem_ready = (is_ram  ? ram_ready : 0)  | 
+    // Note: All peripherals must provide a ready signal to the mux to prevent CPU hang.
+    assign mem_ready = (is_ram  ? ram_ready  : 0) | 
                        (is_sram ? sram_ready : 0) | 
-                       (is_spi  ? spi_ready : 0)  | 
-                       (is_uart ? 1'b1 : 0);
+                       (is_spi  ? spi_ready  : 0) | 
+                       (is_uart ? uart_ready : 0);
 
-    assign mem_rdata = is_ram  ? ram_rdata : 
+    assign mem_rdata = is_ram  ? ram_rdata  : 
                        is_sram ? sram_rdata : 
-                       is_spi  ? spi_rdata : 
+                       is_spi  ? spi_rdata  : 
+                       is_uart ? uart_rdata :
                        32'h0000_0000;
 
     // --- CPU ---

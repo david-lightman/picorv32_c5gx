@@ -77,7 +77,7 @@ upload: program
 # ------------------------------------------------------------------------------
 # 6. Simulation
 # ------------------------------------------------------------------------------
-SRCS   := picorv32.v riscv_core_c5gx.v hex_decoder.v simpleuart.v sd_spi_bridge.v sram_controller.v 
+SRCS   := picorv32.v riscv_core_c5gx.v hex_decoder.v uart_full.v sd_spi_bridge.v sram_controller.v 
 TB_SRC := tb.v
 
 work:
