@@ -1,0 +1,92 @@
+RY OF OPERATION: THE BOOTLOADER
+================================================================================
+
+This document explains the "Magic" happening inside firmware/main.c.
+Specifically, how we move from a tiny C program to a full Operating System.
+
+--------------------------------------------------------------------------------
+1. THE HANDOFF (The Jump)
+--------------------------------------------------------------------------------
+The most confusing line in C is the final jump:
+
+    void (*kernel)(void) = (void*)0x10000000;
+    kernel();
+
+Breakdown:
+1.  (void*)0x10000000 : We cast the integer address of our SRAM into a pointer.
+                        We are telling the compiler "Trust me, memory exists here."
+2.  void (*kernel)(void) : We declare a function pointer named 'kernel'.
+                           It takes no arguments (void) and returns nothing (void).
+3.  kernel() :          This compiles to the RISC-V instruction 'jalr'. 
+                        It forces the Program Counter (PC) to overwrite itself 
+                        with 0x10000000.
+
+Result:
+Execution stops in the Firmware (Internal BRAM) and instantly resumes at the
+first instruction of the Software (External SRAM).
+
+--------------------------------------------------------------------------------
+2. THE LOOP MATH (64KB Load)
+--------------------------------------------------------------------------------
+We load 64KB of data, which is far more than the 512 bytes of a single sector.
+This is achieved via a Loop-within-a-Loop.
+
+    External Loop (128x) * Internal Loop (512x) = 65,536 Bytes (64KB)
+
+    for (int sec = 1; sec <= 128; sec++) { ... }
+
+Why start at Sector 1?
+- Sector 0 (Bytes 0-511) contains the MBR (Partition Table).
+- If we overwrite Sector 0, the PC won't recognize the SD card.
+- We hide our Kernel starting at Offset 512 (Sector 1) to keep the MBR safe.
+
+--------------------------------------------------------------------------------
+3. THE SPI PROTOCOL (How we get the data)
+--------------------------------------------------------------------------------
+SPI is "Full Duplex," meaning data flows both ways on every clock pulse.
+There is no "Read" command; there is only "Exchange".
+
+The Line:  *ram++ = spi_byte(0xFF);
+
+This single line performs three critical actions simultaneously:
+
+A. The Exchange (spi_byte(0xFF))
+   - We transmit 0xFF (Binary 11111111). This keeps the MOSI line High (Idle).
+   - Sending these bits toggles the CLK line 8 times.
+   - The SD Card uses these 8 CLK pulses to shift 1 byte of data OUT to us.
+   - If we didn't send the 0xFF, the clock would stop, and data would never arrive.
+
+B. The Storage (*ram = ...)
+   - The byte we received is written to the current SRAM address.
+
+C. The Pointer Math (ram++)
+   - The memory pointer increments to the next address (e.g., 0x10000000 -> 0x10000001).
+
+--------------------------------------------------------------------------------
+4. THE DATA TOKEN (0xFE)
+--------------------------------------------------------------------------------
+SD Cards are slow computers. When we ask for a sector (CMD17), it takes time
+for the card to find it in its internal flash.
+
+    while (spi_byte(0xFF) != 0xFE);
+
+1.  We send CMD17.
+2.  The Card holds the line High (0xFF) while it "thinks" (Busy State).
+3.  We keep pumping the clock (sending 0xFF) to give it CPU cycles.
+4.  Eventually, the Card sends 0xFE.
+    - 0xFE is the "Start Token".
+    - It means: "I am ready. The next 512 bytes are your data."
+
+--------------------------------------------------------------------------------
+SUMMARY OF BOOT
+--------------------------------------------------------------------------------
+1. Hardware Reset.
+2. Firmware wakes up SD Card.
+3. Firmware requests Sector 1.
+4. Firmware pumps clock (0xFF) until Card signals Ready (0xFE).
+5. Firmware reads 512 bytes into SRAM.
+6. Firmware repeats 128 times (loading 64KB).
+7. Firmware jumps to SRAM (0x10000000).
+8. Kernel takes over.
+
+
