@@ -74,16 +74,20 @@ int main() {
     
     volatile uint8_t *ram = SRAM_BASE;
     
+    // skip first sector (MBR)
+    //  512 bytes per sector
     for (int sec = 1; sec <= 128; sec++) {
-        // CMD17: Read Single Block
+        // CMD17: Read a block (512 bytes)
         if (sd_cmd(17, sec, 0xFF) != 0x00) goto fail;
         
-        // Wait for Data Token (0xFE)
+        // Wait for Data Token (0xFE) = READY
         while (spi_byte(0xFF) != 0xFE);
         
-        // Copy 512 bytes to SRAM
+        // data token is ready, next block on the wire
+        // is your data
         for (int i = 0; i < 512; i++) {
-            *ram++ = spi_byte(0xFF);
+            *ram++ = spi_byte(0xFF); // 0xFF = dummy byte
+                                     //  keps MOSI high and shifts in data from MISO
         }
         
         // Read CRC (Discard)
@@ -98,6 +102,9 @@ int main() {
     putc('B'); putc('O'); putc('O'); putc('T'); putc('!'); putc('\r'); putc('\n');
     
     // Cast integer 0x10000000 to a function pointer and call it
+    //  or - create a variable named kernel that points to a function
+    //  located at address 0x10000000 and call it.
+    // (void*) - "trust me" that this is a valid function pointer
     void (*kernel)(void) = (void*)0x10000000;
     kernel();
 

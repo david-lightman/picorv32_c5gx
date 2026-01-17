@@ -1,0 +1,85 @@
+================================================================================
+                        THEORY OF OPERATION: THE KERNEL
+================================================================================
+
+This document explains the lifecycle of our kernel,
+from source code to execution on the fpga.
+
+--------------------------------------------------------------------------------
+1. THE BUILD CHAIN (From Code to Binary)
+--------------------------------------------------------------------------------
+We cannot just copy C files to the FPGA. We must convert them into a raw
+stream of instructions that the CPU understands.
+
+    A. COMPILATION (GCC)
+       The code (main.c, start.S) is translated into RISC-V Machine Code.
+       However, at this stage, the addresses are "floating". The code does
+       not yet know where in memory it will live.
+
+    B. LINKING (LD + sections.lds)
+       The Linker takes the floating code and "Anchors" it.
+       Our script (sections.lds) tells the linker:
+       "Assume this code starts at 0x10000000."
+       
+       Crucially, the linker resolves function calls. When we call putc(),
+       the linker replaces that name with the specific hardcoded address
+       where putc() resides.
+
+    C. EXTRACTION (OBJCOPY)
+       The output of the linker is an ELF file. ELF files contain headers
+       and metadata that our bootloader does not understand.
+       We use 'objcopy -O binary' to strip away all metadata, leaving
+       only the raw, executable machine code.
+
+--------------------------------------------------------------------------------
+2. THE CRITICAL ORDERING
+--------------------------------------------------------------------------------
+In the Makefile, we see:
+    
+    $(CC) ... -o kernel.elf start.S main.c
+
+We deliberately list 'start.S' BEFORE 'main.c'.
+Why?
+1. The Bootloader jumps blindly to the first byte of SRAM (0x10000000).
+2. Therefore, the instruction at Offset 0 of our binary MUST be the entry point.
+3. 'start.S' contains the stack initialization.
+4. If 'main.c' were first, the CPU would execute C code without a stack, 
+   causing an immediate crash.
+
+--------------------------------------------------------------------------------
+3. THE ANATOMY OF KERNEL.BIN
+--------------------------------------------------------------------------------
+If you open kernel.bin in a Hex Editor, you will see:
+
+[ Offset 0x0000 ] -> [ start.S ]
+                     This corresponds to address 0x10000000.
+                     Instruction: li sp, 0x10080000 (Set Stack Pointer).
+                     Instruction: call main
+
+[ Offset 0x00XX ] -> [ main.c ]
+                     The compiled code for your Main function.
+
+[ Offset 0xXXXX ] -> [ Strings ]
+                     "Cyclone V RISC-V Interactive..."
+
+--------------------------------------------------------------------------------
+4. DEPLOYMENT LOGIC
+--------------------------------------------------------------------------------
+The Bootloader is "Dumb". It reads sectors 1-128 from the SD card and
+pastes them into SRAM.
+
+Therefore, we must write 'kernel.bin' to the SD card such that:
+- Byte 0 of kernel.bin lives at Byte 0 of Sector 1 (Phys addr 512).
+- The file must remain contiguous.
+
+This is why we use 'dd' with 'seek=1'. It aligns the binary perfectly
+with the bootloader's read loop.
+
+--------------------------------------------------------------------------------
+5. RUNTIME EXECUTION
+--------------------------------------------------------------------------------
+1. Bootloader Jumps to 0x10000000.
+2. CPU executes start.S (Set SP).
+3. CPU jumps to main().
+4. main() initializes the UART driver.
+5. You see the prompt.
