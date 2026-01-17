@@ -89,4 +89,8 @@ SUMMARY OF BOOT
 7. Firmware jumps to SRAM (0x10000000).
 8. Kernel takes over.
 
+`kernel.bin` needs to less than 64KB and should be written to our card, beginning 
+at SECTOR 1 (skip the first 512bytes/1block at sector 0). This kernel is written
+to the first 64K of SRAM.
+
 
