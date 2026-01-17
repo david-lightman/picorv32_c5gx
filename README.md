@@ -35,7 +35,7 @@ make program
 
 ### Boot chain (OS)
 
-For a generic, garbage software boot-chain, see [this repo](https://github.com/david-lightman/picorv32_os_c5gx.git). Much of it was built after wrangling
+For a generic, garbage software boot-chain, see [david-lightman/picorv32_os_c5gx](https://github.com/david-lightman/picorv32_os_c5gx.git). Much of it was built after wrangling
 gemini to assist - I wouldn't have gotten through it otherwise. 
 
 ## Credits
