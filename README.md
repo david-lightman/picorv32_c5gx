@@ -33,6 +33,11 @@ make
 make program
 ```
 
+### Boot chain (OS)
+
+For a generic, garbage software boot-chain, see [this repo](https://github.com/david-lightman/picorv32_os_c5gx.git). Much of it was built after wrangling
+gemini to assist - I wouldn't have gotten through it otherwise. 
+
 ## Credits
 
 - PicoRV32 Core: Clifford Wolf / YosysHQ
