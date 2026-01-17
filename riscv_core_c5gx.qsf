@@ -760,12 +760,12 @@ set_global_assignment -name OPTIMIZE_HOLD_TIMING "ALL PATHS"
 set_global_assignment -name OPTIMIZE_MULTI_CORNER_TIMING ON
 set_global_assignment -name FITTER_EFFORT "STANDARD FIT"
 set_global_assignment -name VERILOG_FILE baseline_c5gx.v
-set_global_assignment -name VERILOG_FILE uart_full.v
 set_global_assignment -name VERILOG_FILE hex_decoder.v
 set_global_assignment -name VERILOG_FILE picorv32.v
 set_global_assignment -name VERILOG_FILE riscv_core_c5gx.v
 set_global_assignment -name VERILOG_FILE sd_spi_bridge.v
 set_global_assignment -name VERILOG_FILE sram_controller.v
+set_global_assignment -name VERILOG_FILE uart_full.v
 set_global_assignment -name SDC_FILE riscv_core_c5gx.SDC
 set_global_assignment -name MISC_FILE firmware.list
 set_global_assignment -name BOARD "Cyclone V GX Starter Kit"
